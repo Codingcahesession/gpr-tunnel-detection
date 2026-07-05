@@ -4,7 +4,7 @@ Official implementation of the paper:
 
 > **Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring**
 > Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
-> arXiv:XXXX.XXXXX &nbsp;·&nbsp; <!-- TODO: insert arXiv ID after announcement -->
+> arXiv:pending
 > [Kaggle dataset](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
 
 A fully unsupervised pipeline that detects clandestine tunnels in ground-penetrating radar (GPR) B-scan radargrams. A denoising convolutional bottleneck autoencoder is trained **only on tunnel-free ground**; at inference, tunnels are flagged by where and how badly they fail to reconstruct. The central contribution is a **depth-restricted top-*k* anomaly score** that pools the highest reconstruction errors only within the depth band where tunnels can physically occur — a label-free geometric prior that raises AUC from 0.986 to 0.994 and cuts missed detections by 77% relative to whole-image scoring, without any retraining.
@@ -359,8 +359,8 @@ The four `evaluate_*.py` scripts share the loading / scoring / metric-reporting 
          Radar Using Depth-Restricted Reconstruction Scoring},
   author={Junaid, Muhammad and Khan, Shoab A. and Ahmed, Nisar},
   year={2026},
-  eprint={XXXX.XXXXX},
-  archivePrefix={arXiv},
+  eprint=in process,
+  archivePrefix=in process,
   primaryClass={cs.CV}
 }
 ```
