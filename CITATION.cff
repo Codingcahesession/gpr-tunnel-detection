@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this code or the accompanying dataset, please cite the paper below."
+title: "Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring"
+authors:
+  - family-names: Junaid
+    given-names: Muhammad
+    email: junaid6330@yahoo.com
+    affiliation: "Sir Syed CASE Institute of Technology, Islamabad, Pakistan"
+  - family-names: Khan
+    given-names: Shoab A.
+    email: kshoab@yahoo.com
+    affiliation: "Sir Syed CASE Institute of Technology, Islamabad, Pakistan"
+  - family-names: Ahmed
+    given-names: Nisar
+    email: ch.nisar89@icloud.com
+    affiliation: "University of Strathclyde, Glasgow, UK"
+year: 2026
+# TODO: after arXiv announcement, fill in the identifier below.
+identifiers:
+  - type: other
+    value: "arXiv:XXXX.XXXXX"
+    description: "arXiv preprint"
+repository-code: "https://github.com/Codingcahesession/gpr-tunnel-detection"
+license: MIT

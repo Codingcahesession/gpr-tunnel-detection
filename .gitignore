@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Model weights (attach to GitHub Releases instead of committing)
+*.pt
+*.pth
+
+# Dataset (hosted on Kaggle; do NOT commit)
+data/
+*.zip
+
+# Generated results (regenerable by running the scripts)
+Results/
+runs/
+
+# Labels CSV is user-generated after they download the dataset
+inference_labels.csv
+normal_files.txt
+tunnel_files.txt
+line_folder_files.txt
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
