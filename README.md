@@ -4,7 +4,7 @@ Official implementation of the paper:
 
 > **Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring**
 > Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
-> arXiv:submit/7790737 [cs.CV] 6 Jul 2026
+> arXiv:2607.04882 [cs.CV] 6 Jul 2026
 > [Kaggle dataset](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
 > Paper : https://drive.google.com/file/d/13d0eofVanTqByWJu_J8KviY_jo11D5HD/view?usp=sharing
 
@@ -360,8 +360,8 @@ The four `evaluate_*.py` scripts share the loading / scoring / metric-reporting 
          Radar Using Depth-Restricted Reconstruction Scoring},
   author={Junaid, Muhammad and Khan, Shoab A. and Ahmed, Nisar},
   year={2026},
-  eprint=in process,
-  archivePrefix=in process,
+  eprint={2607.04882},
+  archivePrefix={arXiv},
   primaryClass={cs.CV}
 }
 ```
