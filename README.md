@@ -6,7 +6,7 @@ Official implementation of the paper:
 > Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
 > arXiv:2607.04882 [cs.CV] 6 Jul 2026
 > [Kaggle dataset](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
-> Paper : https://drive.google.com/file/d/13d0eofVanTqByWJu_J8KviY_jo11D5HD/view?usp=sharing
+> Paper : [arXiv:2607.04882, 2026](https://arxiv.org/abs/2607.04882)
 
 A fully unsupervised pipeline that detects clandestine tunnels in ground-penetrating radar (GPR) B-scan radargrams. A denoising convolutional bottleneck autoencoder is trained **only on tunnel-free ground**; at inference, tunnels are flagged by where and how badly they fail to reconstruct. The central contribution is a **depth-restricted top-*k* anomaly score** that pools the highest reconstruction errors only within the depth band where tunnels can physically occur — a label-free geometric prior that raises AUC from 0.986 to 0.994 and cuts missed detections by 77% relative to whole-image scoring, without any retraining.
 
