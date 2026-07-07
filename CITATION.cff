@@ -18,7 +18,7 @@ year: 2026
 # TODO: after arXiv announcement, fill in the identifier below.
 identifiers:
   - type: other
-    value: "arXiv:submit/7790737 [cs.CV] 6 Jul 2026"
+    value: "arXiv:2607.04882"
     description: "arXiv preprint"
 repository-code: "https://github.com/Codingcahesession/gpr-tunnel-detection"
 license: MIT
