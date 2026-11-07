@@ -47,7 +47,7 @@ OUTPUT_DIR = SCRIPT_DIR / "Results" / "Training"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MODEL_PATH = SCRIPT_DIR / "gpr_final_model.pt"
-BEST_MODEL_PATH = SCRIPT_DIR / "gpr_final_model.pt"   # add this line
+BEST_MODEL_PATH = SCRIPT_DIR / "gpr_best_model.pt"
 CHECKPOINT_PATH = SCRIPT_DIR / "gpr_model_checkpoint.pth"
 LOSS_PLOT_PATH = OUTPUT_DIR / "training_validation_loss_curve.png"
 RANDOM_RAW_PREVIEW_PATH = OUTPUT_DIR / "preview_random_raw_training_image.png"
