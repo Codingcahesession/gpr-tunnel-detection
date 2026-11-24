@@ -17,11 +17,12 @@ data/
 Results/
 runs/
 
-# Labels CSV is user-generated after they download the dataset
+# Old (v1) label files and the private original-name map - never publish
 inference_labels.csv
 normal_files.txt
 tunnel_files.txt
 line_folder_files.txt
+*name_map*.csv
 
 # Editors / OS
 .vscode/

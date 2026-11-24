@@ -1,90 +1,82 @@
 # Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring
 
-Official implementation of the paper:
+Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
 
-> **Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring**
-> Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
-> arXiv:2607.04882 [cs.CV] 6 Jul 2026
-> [Kaggle dataset](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
-> Paper : [arXiv:2607.04882, 2026](https://arxiv.org/abs/2607.04882)
+> Paper: [arXiv:2607.04882](https://arxiv.org/abs/2607.04882)
+> Dataset: [Kaggle: GPR Normal and Tunnel Anomaly Dataset (version 4)](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
+> Trained model: [`gpr_best_model.pt`](../../releases) on the Releases page
 
-A fully unsupervised pipeline that detects clandestine tunnels in ground-penetrating radar (GPR) B-scan radargrams. A denoising convolutional bottleneck autoencoder is trained **only on tunnel-free ground**; at inference, tunnels are flagged by where and how badly they fail to reconstruct. The central contribution is a **depth-restricted top-*k* anomaly score** that pools the highest reconstruction errors only within the depth band where tunnels can physically occur — a label-free geometric prior that raises AUC from 0.986 to 0.994 and cuts missed detections by 77% relative to whole-image scoring, without any retraining.
+Hand-dug tunnels beneath pipelines and protected sites are hard to find before they are used. This repository detects them in ground-penetrating radar (GPR) data **without any tunnel examples for training**. A convolutional autoencoder learns what the normal ground of a site looks like from surveys recorded before a tunnel exists. Later surveys are flagged where the autoencoder fails to reconstruct them.
 
-**No tunnel labels are used for training, scoring, or threshold calibration.**
+The key element is **depth-restricted scoring**: the score pools the largest reconstruction errors only within the travel-time band in which a tunnel can occur. It leaves out the near-surface returns, which change most with soil moisture.
 
 ---
 
-## Table of contents
+## Results
 
-- [Headline results](#headline-results)
-- [Method at a glance](#method-at-a-glance)
-- [Installation](#installation)
-- [Data](#data)
-- [Pretrained weights](#pretrained-weights)
-- [Reproduce the paper](#reproduce-the-paper)
-- [Full metric report](#full-metric-report)
-- [Ablation](#ablation-paper-table-v)
-- [Threshold sweep](#threshold-sweep-paper-table-vii)
-- [Error analysis](#error-analysis)
-- [Repository layout](#repository-layout)
-- [Citation](#citation)
-- [License](#license)
+The test set has 1,600 windows (966 normal, 634 tunnel) from 55 survey lines across one hand-dug tunnel. Each survey line is judged by a threshold set only from the *other* lines (leave-one-line-out). The 95% confidence intervals come from resampling whole survey lines.
 
----
+| Detector (depth band) | AUC [95% CI] | F1 [95% CI] | Missed tunnel windows | False positives | Tunnel crossings found | Recall at 1% false-positive rate |
+|---|---|---|---|---|---|---|
+| **Autoencoder (ours)** | **0.9936** [0.987, 0.999] | **0.972** [0.933, 0.993] | **18** | 18 | **29/29** | **0.968** |
+| One-Class SVM (standardised) | 0.9930 [0.986, 0.998] | 0.939 [0.888, 0.971] | 68 | 5 | 27/29 | 0.907 |
+| Isolation Forest | 0.9904 [0.981, 0.997] | 0.936 [0.883, 0.971] | 57 | 22 | 29/29 | 0.901 |
+| PCA | 0.9897 [0.982, 0.996] | 0.930 [0.884, 0.962] | 73 | 11 | 29/29 | 0.879 |
+| PaDiM | 0.9887 [0.981, 0.995] | 0.925 [0.865, 0.963] | 75 | 16 | 27/29 | 0.852 |
+| PatchCore | 0.9259 [0.879, 0.963] | 0.624 [0.449, 0.760] | 345 | 4 | 17/29 | 0.546 |
 
-## Headline results
+- **The depth band improves every detector.** For the autoencoder, AUC goes from 0.986 (whole window) to 0.994. For PatchCore it goes from 0.768 to 0.926.
+- **Every missed tunnel window lies at the edge of a crossing.** All 29 crossings are flagged.
+- **Less data is enough.** With 25% of the training data, depth-band scoring (F1 0.945) beats whole-window scoring trained on all of it (F1 0.927).
+- **The learned model is needed.** Simple scores of the same depth band without any learning (brightness, contrast, edges, difference from the average window) find at most 20 of the 29 crossings.
+- **The method is stable.** Across three training seeds: AUC 0.9937 ± 0.0003 and F1 0.9717 ± 0.0008, with all 29 crossings found by each model.
 
-Final detector — depth-restricted top-5% MSE with threshold *τ* = *μ* + 2.5*σ* over normal-class scores. Test set: 1,600 field windows (966 normal / 634 tunnel) across 55 survey lines.
+**Unseen ground.** These sites were never used for training, and the threshold comes from Site A:
 
-| Metric | Value | 95% Wilson CI |
+| | Site C (5,545 windows) | Site B, irrigated soil (5,313 windows) |
 |---|---|---|
-| **AUC-ROC** | **0.9936** | — |
-| **F1** | **0.9747** | — |
-| **Precision** | **0.9763** | [0.9612, 0.9856] |
-| **Recall** | **0.9732** | [0.9575, 0.9832] |
-| Specificity | 0.9845 | [0.9745, 0.9906] |
-| Accuracy | 0.9800 | [0.9719, 0.9858] |
-| MCC | 0.9582 | — |
-| Cohen's κ | 0.9582 | — |
-| FPR | 0.0155 (15 / 966) | — |
-| FNR | 0.0268 (17 / 634) | — |
+| False alarms | 1.6% | 9.3% |
 
-<p align="center">
-  <img src="assets/roc_curve.png" width="45%" alt="ROC">
-  <img src="assets/precision_recall_curve.png" width="45%" alt="PR">
-</p>
+On the irrigated plot, resetting the threshold from one fifth of its survey lines lowers false alarms to 4.2%; retraining the autoencoder on that plot's own ground gives 3.6%, which is not a significant further gain (tested over all 136 lines in five rounds). So the model is trained once, and a new site needs only a short baseline survey to set the threshold.
 
-<p align="center">
-  <img src="assets/confusion_matrix.png" width="42%" alt="Confusion matrix">
-</p>
-
-Of 634 tunnel windows: **617 detected, 17 missed** (all truncated edge windows — see [Error analysis](#error-analysis)). Of 966 normal windows: **951 correctly classified, 15 false alarms**.
+<p align="center"><img src="assets/fig_roc.png" width="90%"><br><em>ROC curves at low false-positive rates.</em></p>
+<p align="center"><img src="assets/fig_error_maps.png" width="45%"><br><em>Windows, reconstructions and error maps; the dashed line marks the start of the depth band.</em></p>
 
 ---
 
-## Method at a glance
+## Field data
 
-**1. Denoising autoencoder trained on normal-only windows.** Convolutional bottleneck architecture with a 256-D latent (64:1 compression, forces the network to keep only structural regularities of tunnel-free ground). Trained with Gaussian noise (σ = 0.05) added to inputs and MSE loss against the *clean* target — this prevents an identity mapping and widens the reconstruction-error gap between classes at inference. Best-validation-loss checkpointing.
+- **Site and time:** agricultural land near Islamabad, Pakistan, January–March 2025.
+- **Instrument:** Sensors & Software LMX200 with a 250 MHz antenna, with traces every 0.05 m. Hyperbola fitting gives a propagation velocity of about 0.085 m/ns.
+- **Tunnel:** hand-dug from a vertical entry shaft, leaving the ground surface above undisturbed.
+  - Roughly arched; about 0.6 m wide and 1 m high.
+  - More than 4.6 m long; air-filled and unlined.
+  - Roof about 0.9–1.4 m below the surface.
+- **Site A:** the same strips of ground were surveyed many times, before and after the tunnel was dug, in dry and wet conditions, by day and by night.
+- **Sites B and C:** normal ground only, used to test false alarms on new ground. Site B had been irrigated for a separate soil-moisture study.
+- **Processing:** radargrams were processed in EKKO_Project (dewow, background subtraction, SEC2 gain; two gain settings).
+- **Windows:** cut into 128 × 128 greyscale windows. Each covers about 2.45 m of survey line and 0–40 ns of travel time (about 0–1.7 m depth). Neighbouring windows overlap by 94–97%.
 
-<p align="center">
-  <img src="assets/loss_curve.png" width="70%" alt="Training curve">
-</p>
+| Part | Windows |
+|---|---|
+| Site A before the tunnel (training/validation, normal only) | 8,496 |
+| Site A after the tunnel (test): normal / tunnel | 966 / 634 |
+| Site B, normal (unseen) | 5,313 |
+| Site C, normal (unseen) | 5,545 |
 
-**2. Depth-restricted top-*k* scoring — the paper's contribution.** For each test window *x* with reconstruction *x̂*, form the squared-error map *E* = (*x* − *x̂*)². The anomaly score is the mean of the top-5% highest pixel errors drawn *only* from the lower half of *E* (rows 64–127 of the 128-row window). Tunnels in this survey site sit below the 1.2 m midpoint of a 2.4 m scan window, so nothing above row 64 can be a tunnel — pooling there just injects nuisance error from the direct-wave arrival and shallow soil clutter. The restriction requires no labels and uses only survey geometry.
+## Method
 
-**3. Unsupervised threshold.** *τ* = *μ*<sub>normal</sub> + 2.5 *σ*<sub>normal</sub>, computed on scored normal-class windows alone. No tunnel labels are used for calibration.
-
-**4. (Optional) No-demote *N*-of-*M* spatial aggregation.** Consecutive windows overlap by ~90%, so a real tunnel spans many neighbours. For every window, look at the *M* consecutive windows centred on it within the same survey line; if at least *N* are already flagged, promote the window to positive. A confirmed detection is never demoted. In this paper aggregation is a *safety net for weak detectors* — it helps the full-image baselines but adds nothing on top of the depth-restricted scoring rule (see ablation below).
-
-<p align="center">
-  <img src="assets/reconstruction_comparison.png" width="80%" alt="Reconstruction on normal vs tunnel windows">
-</p>
-
-Normal ground reconstructs faithfully; the hyperbolic tunnel signature does not, concentrating reconstruction error in the lower depth band that the score pools over.
+- **Model:** a denoising convolutional autoencoder with a 256-dimensional bottleneck and 9.78 M parameters (`GPRBottleneckAE` in `train.py`).
+- **Training:** on normal Site A windows only.
+  - Gaussian input noise (σ = 0.05) and horizontal flips.
+  - Adam (learning rate 5e-4), batch 64, 50 epochs.
+  - The checkpoint with the lowest validation loss is kept.
+- **Score:** the mean of the largest 5% of squared reconstruction errors within rows 64–127 of the window. This is 20–40 ns, about 0.85–1.7 m depth, the band in which the tunnel roof lies.
+- **Threshold:** mean + 2.5 standard deviations of normal scores.
 
 ---
 
-## Installation
+## Quick start
 
 ```bash
 git clone https://github.com/Codingcahesession/gpr-tunnel-detection.git
@@ -92,283 +84,81 @@ cd gpr-tunnel-detection
 pip install -r requirements.txt
 ```
 
-Requires Python ≥ 3.10 and PyTorch ≥ 2.0. A CUDA GPU is recommended for training (~1 hour on a single card); inference runs comfortably on CPU.
-
----
-
-## Data
-
-The full field dataset is publicly hosted on Kaggle:
-
-**[kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)**
-
-Contents:
-
-- **19,743** normal subsurface radargrams (200-MHz GPR, varied terrain: clay, sand, cultivated soil, moist ground, scattered buried debris, in and around Islamabad, Pakistan).
-- **1,600** labeled test windows — 966 normal, 634 tunnel — across **55 survey lines** over three hand-excavated tunnels (1.5–3 m deep, 3–6 m wide).
-
-Download and extract into a `data/` folder at the repo root:
-
-```
-gpr-tunnel-detection/
-└── data/
-    ├── Training_and_Validation/Site_A/          # normal-only training pool
-    ├── Inference_with_line_folders/             # test windows organised by survey line
-    │   ├── Line 1/
-    │   ├── Line 2/
-    │   └── ...
-    └── Inference_with_separate_folders/         # same test images, flat layout
-        ├── normal/
-        └── tunnel/
-```
-
-The paths above are the defaults; override them by editing the `INFERENCE_ROOT` / `NORMAL_DIRS` constants at the top of each script.
-
-### Generating the labels CSV
-
-The evaluation scripts read `inference_labels.csv` (columns: `survey_line`, `filename`, `label`) to pair every test window with its label and survey-line assignment. To generate it after downloading the dataset:
-
-**1. List the files** — one line per file, three listings needed. Cross-platform:
-
-<details><summary>Linux / macOS / Git-Bash</summary>
+1. **Data:** download the Kaggle dataset and unzip it into a folder named `data` inside the repository. That folder must contain `labels.csv`, `train_normal_siteA/`, `test_siteA/`, `unseen_normal_siteB/` and `unseen_normal_siteC/`. To keep the data elsewhere, set the environment variable `GPR_DATA` to its folder.
+2. **Model:** download `gpr_best_model.pt` from the [Releases](../../releases) page into the repository folder.
+3. **Reproduce the headline result** (a few minutes on a GPU):
 
 ```bash
-find data/Inference_with_separate_folders/normal -type f -printf "%f\n" > normal_files.txt
-find data/Inference_with_separate_folders/tunnel -type f -printf "%f\n" > tunnel_files.txt
-find data/Inference_with_line_folders            -type f > line_folder_files.txt
+python -u evaluate.py            # Site A test set: AUC 0.9936, F1 0.972, 29/29 crossings
+python -u evaluate.py --unseen   # also false-alarm rates on Sites B and C (1.6% and 9.3%)
 ```
-</details>
 
-<details><summary>Windows PowerShell</summary>
+Results are written to `Results/Evaluation/`.
 
-```powershell
-Get-ChildItem "data\Inference_with_separate_folders\normal" -Recurse -File | Select-Object -ExpandProperty Name     > normal_files.txt
-Get-ChildItem "data\Inference_with_separate_folders\tunnel" -Recurse -File | Select-Object -ExpandProperty Name     > tunnel_files.txt
-Get-ChildItem "data\Inference_with_line_folders"            -Recurse -File | Select-Object -ExpandProperty FullName > line_folder_files.txt
-```
-</details>
-
-**2. Build the CSV.** This walks the three listings, reconciles the flat-folder labels with the survey-line-folder layout, and writes `inference_labels.csv`:
+## Train the model yourself
 
 ```bash
-python build_labels_csv.py
+python -u train.py
 ```
 
-The script prints a summary and flags any unmatched or conflicting entries.
+If `splits/siteA_train.txt` and `splits/siteA_val.txt` are present, the exact train/validation split of the paper is used.
 
----
+Training writes its best checkpoint to `gpr_best_model.pt` in the repository folder. Move the downloaded model elsewhere first if you want to keep it.
 
-## Pretrained weights
+## Reproduce every experiment in the paper
 
-The best-validation checkpoint used for all reported results — `gpr_best_model.pt` (~37 MB) — is attached to the [GitHub Releases](../../releases) page.
+The scripts in `journal_experiments/` produce every table and figure of the paper. Run them from the repository folder. All outputs go to `Results/Journal/`. Training scripts can be stopped and restarted; they continue where they stopped.
 
-<!-- TODO: upload as a release asset before publishing -->
-
-Download it and place it in the repo root next to the scripts. Every eval script expects `./gpr_best_model.pt` by default.
-
----
-
-## Reproduce the paper
-
-### 1. Verify the dataset composition (Table I)
-
-Recomputes every count directly from disk and reruns the deterministic split logic used at training time — so you get the exact same train/validation partition:
-
-```bash
-python verify_dataset_table.py
-```
-
-Expected output includes: raw normal images, 80/20 train/validation split, 10× augmentation factor, test set counts (966 / 634 / 1600).
-
-### 2. Retrain from scratch (optional)
-
-Skip this if you're using the released checkpoint; run it to reproduce training from scratch. GPU strongly recommended; ~1 hour on a single modern card.
-
-```bash
-python train.py
-```
-
-Writes:
-- `gpr_best_model.pt` — best-validation checkpoint (this is what evaluation uses)
-- `gpr_final_model.pt` — end-of-training checkpoint
-- `gpr_model_checkpoint.pth` — full training-resume state
-- `Results/Training/` — loss curves, sample reconstructions, previews
-
-### 3. Evaluate the adopted method (Table VI, headline numbers)
-
-Depth-restricted top-5% scoring + *τ* = *μ* + 2.5*σ*, with aggregation comparison across nine (*M*, *N*) configurations:
-
-```bash
-python evaluate.py
-```
-
-Writes `Results/Inference_Final/`:
-- `metrics_report_baseline_per_image.{txt,csv}` — the paper's Table VI
-- `metrics_report_aggregated_M<M>_N<N>.{txt,csv}` — best aggregation config
-- `roc_curve.png`, `precision_recall_curve.png`, `confusion_matrix_*.png`
-- `threshold_sweep.csv` — the paper's Table VII (six operating points)
-- `window_comparison.csv` — all nine aggregation configurations side by side
-- `per_image_scores.csv` — every window's score, raw prediction, and each aggregated prediction
-- `survey_groups.csv` — per-line window counts and class balance
-- FN/FP inspection folders (panels + originals) for both baseline and best-aggregated
-- Thesis-grade grid figures for FN / FP / TP-sample / TN-sample
-
-### 4. Reproduce the rest of the ablation
-
-| Paper table | Method | Command |
+| Step | What it does | Time (laptop GPU) |
 |---|---|---|
-| Table V row 1 | Global MSE (whole-image mean) | `python evaluate_global_mse.py` |
-| Table V rows 2 + 3 | Top-5% MSE (full image), without and with *M*=7, *N*=3 aggregation | `python evaluate_aggregation_only.py` (writes both the per-image baseline report and the aggregated report) |
-| Table V rows 4 + 5 | **Depth-restricted top-5%**, without and with aggregation | `python evaluate.py` |
-| Table III | Top-*k* sweep on the full image, *k* ∈ {1, 2, 5, 10}% | `python evaluate_topk_sweep.py` |
-| Table IV | Top-*k* under depth restriction | `python evaluate.py` with `TOP_FRACTION = 0.05` (default) and again with `TOP_FRACTION = 0.01` (edit the constant at the top of the script) |
+| `step1_data_checks.py` | exact-copy check, similarity of test to training windows, window spacing per line | 5–10 min |
+| `step2_classical_baselines.py` | autoencoder scores, PCA, One-Class SVM, Isolation Forest; depth-band sweep | 15–40 min |
+| `step3_deep_baselines.py` | PaDiM and PatchCore (downloads ImageNet weights once) | 30–90 min |
+| `step4_retrain_seeds.py` | retrains the autoencoder with seeds 7 and 123 | overnight |
+| `step6_ablation.py` | no noise, no flip, 128-D and 512-D bottleneck | overnight |
+| `step7_speed_and_figures.py` | model size, speed, error-map figures | 5 min |
+| `step9_multisite_and_datasize.py` | training on Sites A + C; 25% and 50% of the training data | 3–4 h |
+| `step5_final_analysis.py` | all tables: leave-one-line-out thresholds, confidence intervals, crossings, unseen sites | 2 min |
+| `step10_paper_numbers.py` | false alarms per km, recall at 1% FPR with paired tests, ROC and data-size figures | 1–2 min |
+| `step11_no_learning_rules.py` | depth-band scores without learning, compared with the autoencoder | 5 min |
+| `step12_siteB_rotation.py` | recalibrate or retrain on Site B: five rounds over all 136 lines (trains 5 models) | about 3 h |
 
----
-
-## Full metric report
-
-Verbatim output of `evaluate.py` for the adopted method (Table VI in the paper):
-
+```bash
+python -u journal_experiments/step1_data_checks.py
+# ... then steps 2, 3, 4, 6, 7, 9, then 5 and 10; steps 11 and 12 can run any time after step 9
 ```
-GPR ANOMALY DETECTION - BASELINE_PER_IMAGE
-============================================================
-
-Per-image classification (no aggregation).
-Scoring: top-5.0% MSE within rows 64..127 (depth-restricted).
-Threshold rule: mean + 2.5*std on normal scores.
-
-Threshold value: 0.022820
-Test samples: N = 1600  (normal = 966, tunnel = 634)
-Confusion matrix:  TN=951  FP=15  FN=17  TP=617
-
-Threshold-free metrics
-  AUC-ROC              : 0.9936
-  Average Precision    : 0.9937
-
-Classification metrics (95% Wilson CI)
-  Accuracy             : 0.9800  [0.9719, 0.9858]
-  Precision (PPV)      : 0.9763  [0.9612, 0.9856]
-  Recall / TPR         : 0.9732  [0.9575, 0.9832]
-  Specificity / TNR    : 0.9845  [0.9745, 0.9906]
-  F1                   : 0.9747
-  F2                   : 0.9738
-  Balanced accuracy    : 0.9788
-  MCC                  : 0.9582
-  Cohen's kappa        : 0.9582
-  G-mean               : 0.9788
-
-Error rates
-  FPR                  : 0.0155  (15/966)
-  FNR                  : 0.0268  (17/634)
-  NPV                  : 0.9824
-```
-
----
-
-## Ablation (paper Table V)
-
-All rows share the same autoencoder and the same *μ* + 2.5*σ* threshold rule computed on normal-class scores. AUC/AP are unchanged by aggregation, which operates on thresholded predictions rather than scores.
-
-| # | Method | AUC | AP | F1 | Precision | Recall | MCC | FN | FP |
-|---|---|---|---|---|---|---|---|---|---|
-| 1 | Global MSE (whole-image mean) | 0.9417 | 0.9255 | 0.7217 | 0.9582 | 0.5789 | 0.6446 | 267 | 16 |
-| 2 | Top-5% MSE (full image) | 0.9855 | 0.9814 | 0.9218 | 0.9639 | 0.8833 | 0.8763 | 74 | 21 |
-| 3 | Top-5% + aggregation (*M*=7, *N*=3) | 0.9855 | 0.9814 | 0.9443 | 0.9534 | 0.9353 | 0.9084 | 41 | 29 |
-| 4 | **Depth-restricted top-5% (ours)** | **0.9936** | **0.9937** | **0.9747** | **0.9763** | 0.9732 | **0.9582** | **17** | **15** |
-| 5 | Depth-restricted + aggregation (*M*=3, *N*=2) | 0.9936 | 0.9937 | 0.9740 | 0.9747 | 0.9732 | 0.9569 | 17 | 16 |
-
-Three takeaways from these rows:
-
-- **The dilution problem dominates the naive baseline.** Row 1 misses 42% of tunnels because a tunnel hyperbola occupies a small fraction of a window and gets averaged away. Top-5% pooling alone (row 2) recovers most of that gap (recall 0.58 → 0.88) with no retraining.
-- **The depth restriction delivers the largest single improvement.** Row 2 → row 4: AUC 0.986 → 0.994, missed tunnels 74 → 17, false positives 21 → 15. Both error types drop simultaneously — the restriction tightens the score distribution rather than trading one type for the other.
-- **Spatial aggregation helps weak baselines, not strong ones.** Row 2 → 3 gains +0.023 F1; row 4 → 5 yields −0.001. Once scoring is strong, the residual misses are systematic (runs of consecutive faint-tunnel windows lacking any confirmed neighbour to vote them in) rather than isolated recoverable ones.
-
----
-
-## Threshold sweep (paper Table VII)
-
-The unsupervised default *μ* + 2.5*σ* sits at a balanced operating point. The score function is fixed, so an operator can shift along the precision–recall trade-off at deployment time without touching the model:
-
-| Rule | Threshold | FP | FN | F1 | Accuracy |
-|---|---|---|---|---|---|
-| **μ + 2.5σ (default)** | **0.02282** | **15** | **17** | **0.9747** | **0.9800** |
-| p95 | 0.02030 | 49 | 13 | 0.9525 | 0.9613 |
-| p97 | 0.02149 | 29 | 14 | 0.9665 | 0.9731 |
-| p98 | 0.02218 | 20 | 15 | 0.9725 | 0.9781 |
-| p99 | 0.02337 | 10 | 20 | 0.9762 | 0.9812 |
-| p99.5 | 0.02463 | 5 | 24 | 0.9768 | 0.9819 |
-
----
-
-## Error analysis
-
-**False negatives (n = 17)** — every missed window is a truncated edge view where the tunnel hyperbola is only partially inside the frame; its reconstruction error stays near normal levels. The survey's 90% overlap guarantees the same tunnel appears fully in adjacent windows, where it *is* detected, so these edge misses do not translate into missed tunnels at the survey level.
-
-<p align="center">
-  <img src="assets/false_negatives.png" width="90%" alt="False negatives (all 17)">
-</p>
-
-**False positives (n = 15)** — windows with unusually strong shallow-soil disturbance, plausibly high local moisture, producing lower-band textures outside the training distribution. Genuine model limitations, but of a benign kind for the application: they flag ground that merits a second look.
-
-<p align="center">
-  <img src="assets/false_positives.png" width="90%" alt="False positives (all 15)">
-</p>
-
-**True positives (12-sample)** — representative correctly-detected tunnel windows.
-
-<p align="center">
-  <img src="assets/true_positives_sample.png" width="90%" alt="True positives (sample)">
-</p>
-
-Re-running `evaluate.py` writes these grids in `Results/Inference_Final/` for both the per-image detector and the best aggregation configuration, alongside per-image folders (`false_negatives_baseline_per_image/panels/` and `.../original_images/`) for individual inspection.
-
----
 
 ## Repository layout
 
 ```
-gpr-tunnel-detection/
-├── train.py                        # denoising AE training (paper Section IV-B)
-├── evaluate.py                     # HEADLINE eval: depth-restricted top-5% + aggregation comparison
-├── evaluate_global_mse.py          # ablation: whole-image mean (Table V row 1)
-├── evaluate_topk_sweep.py          # top-k fraction sweep (Tables III + IV)
-├── evaluate_aggregation_only.py    # aggregation on the full-image score (Table V row 3)
-├── build_labels_csv.py             # writes inference_labels.csv from folder listings
-├── verify_dataset_table.py         # reproduces the paper's Table I directly from disk
-├── figures_scripts/                # optional visualisation utilities
-│   ├── make_thesis_loss_outputs.py       # renders publication-quality loss curves
-│   ├── organize_errors_linewise.py       # groups FNs/FPs by survey line for inspection
-│   ├── panel_all_categories.py           # multi-category (FN/FP/TP/TN) reconstruction panels
-│   ├── panel_normal_tunnel.py            # normal-vs-tunnel side-by-side reconstructions
-│   └── show_denoising_examples.py        # visualises the denoising augmentation
-├── assets/                         # figures embedded in this README
-├── requirements.txt
-├── LICENSE                         # MIT
-├── CITATION.cff
-└── README.md
+train.py                 model definition and training
+evaluate.py              headline result with the published model
+journal_experiments/     all experiments of the paper (steps 1-10)
+splits/                  exact train/validation file lists used in the paper
+assets/                  figures
+requirements.txt
 ```
 
-The four `evaluate_*.py` scripts share the loading / scoring / metric-reporting patterns, but each is self-contained (no shared library) so any single row of the ablation can be reproduced independently.
-
----
+The code of the first arXiv version (before the journal revision) is kept under the tag [`v1.0`](../../tree/v1.0).
 
 ## Citation
 
 ```bibtex
 @misc{junaid2026gpr,
-  title={Unsupervised Detection of Underground Tunnels in Ground-Penetrating
-         Radar Using Depth-Restricted Reconstruction Scoring},
-  author={Junaid, Muhammad and Khan, Shoab A. and Ahmed, Nisar},
-  year={2026},
-  eprint={2607.04882},
-  archivePrefix={arXiv},
-  primaryClass={cs.CV}
+  title         = {Unsupervised Detection of Underground Tunnels in Ground-Penetrating Radar Using Depth-Restricted Reconstruction Scoring},
+  author        = {Junaid, Muhammad and Khan, Shoab A. and Ahmed, Nisar},
+  year          = {2026},
+  eprint        = {2607.04882},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CV}
 }
 ```
 
----
-
 ## License
 
-Code: [MIT](LICENSE).
-Dataset: see the license on the [Kaggle page](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset).
+- **Code:** MIT (see `LICENSE`).
+- **Dataset:** CC BY-NC-SA 4.0 (see the Kaggle page).
+
+## Contact
+
+Muhammad Junaid, Sir Syed CASE Institute of Technology, Islamabad: junaid6330@yahoo.com

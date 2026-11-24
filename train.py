@@ -1,20 +1,25 @@
 r"""
 train.py
-GPR Autoencoder Training Script (paper-faithful).
+GPR autoencoder training script (as used in the paper).
 
 Denoising bottleneck convolutional autoencoder trained on NORMAL-ONLY
-GPR B-scan windows. Paper Section IV-B: denoising objective (sigma=0.05),
-horizontal-flip augmentation only (physically valid; other transforms
-were evaluated and rejected as non-physical), best-validation-loss
-checkpointing.
+GPR B-scan windows: denoising objective (sigma = 0.05), horizontal-flip
+augmentation only (physically valid), best-validation-loss checkpointing.
 
-Expected data layout (relative to this script, or override via the
-constants below):
-       data/Training_and_Validation/Site_A/            (normal-only training pool)
-       data/Inference_with_separate_folders/normal/    (normal test images)
-       data/Inference_with_separate_folders/tunnel/    (tunnel test images)
+Data: the Kaggle dataset (version 4) unzipped into  data/  next to this
+script (or set the environment variable GPR_DATA to another folder):
+       data/labels.csv
+       data/train_normal_siteA/      (8,496 normal Site A windows: training pool)
+       data/test_siteA/line_XX/      (test windows; only used for a preview figure)
+
+If splits/siteA_train.txt and splits/siteA_val.txt exist, the exact
+train/validation split of the paper is used; otherwise a seed-42 80/20 split.
+
+Run:   python -u train.py
 """
 
+import csv
+import os
 from pathlib import Path
 import random
 from typing import List, Sequence, Tuple
@@ -37,11 +42,13 @@ from torchvision import transforms
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 
-NORMAL_DIRS = [
-    Path("data") / "Training_and_Validation" / "Site_A",
-]
+DATA_ROOT = Path(os.environ.get("GPR_DATA", SCRIPT_DIR / "data"))
+LABELS_CSV = DATA_ROOT / "labels.csv"
+SPLITS_DIR = SCRIPT_DIR / "splits"
 
-TEST_DIRS = Path("data") / "Inference_with_separate_folders"
+NORMAL_DIRS = [
+    DATA_ROOT / "train_normal_siteA",
+]
 
 OUTPUT_DIR = SCRIPT_DIR / "Results" / "Training"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -436,6 +443,21 @@ def plot_training_validation_loss(step_losses, train_epoch_losses, val_epoch_los
     print(f"Saved loss curve: {LOSS_PLOT_PATH}")
 
 
+def read_split_list(path: Path) -> List[Path]:
+    """Read a list of dataset-relative file names (one per line) into full paths."""
+    with open(path, encoding="utf-8") as f:
+        return [DATA_ROOT / line.strip() for line in f if line.strip()]
+
+
+def tunnel_test_images() -> List[Path]:
+    """Test windows labelled as tunnel in labels.csv (used only for the preview figure)."""
+    if not LABELS_CSV.exists():
+        return []
+    with open(LABELS_CSV, newline="", encoding="utf-8") as f:
+        return [DATA_ROOT / r["file"] for r in csv.DictReader(f)
+                if r["split"] == "test" and r["label"] == "1"]
+
+
 # =============================================================================
 # BLOCK 10: RECONSTRUCTION COMPARISON AFTER TRAINING
 # =============================================================================
@@ -448,8 +470,7 @@ def save_reconstruction_comparison(model, train_files: Sequence[Path], val_files
     normal_pool = list(train_files) + list(val_files)
     normal_sample = random.sample(normal_pool, k=min(3, len(normal_pool)))
 
-    tunnel_dir = TEST_DIRS / "tunnel"
-    tunnel_files = collect_images_from_folder(tunnel_dir) if tunnel_dir.exists() else []
+    tunnel_files = tunnel_test_images()
     tunnel_sample = random.sample(tunnel_files, k=min(3, len(tunnel_files))) if tunnel_files else []
 
     with torch.no_grad():
@@ -504,14 +525,20 @@ def run_project():
     print("Normal training folder(s):")
     for folder in NORMAL_DIRS:
         print(f"  - {folder}")
-    print(f"Inference/test root: {TEST_DIRS}")
+    print(f"Dataset folder: {DATA_ROOT}")
     print(f"Model will be saved to: {MODEL_PATH}")
     print(f"Output previews/reports will be saved to: {OUTPUT_DIR}")
     print(f"Augmentation enabled: {USE_AUGMENTATION}")
     print("=" * 70)
 
     all_normal_files = collect_normal_training_images(NORMAL_DIRS)
-    train_files, val_files = split_train_validation(all_normal_files, TRAIN_RATIO, SEED)
+    train_list, val_list = SPLITS_DIR / "siteA_train.txt", SPLITS_DIR / "siteA_val.txt"
+    if train_list.exists() and val_list.exists():
+        train_files, val_files = read_split_list(train_list), read_split_list(val_list)
+        print(f"Using the paper's train/validation split from {SPLITS_DIR}")
+    else:
+        train_files, val_files = split_train_validation(all_normal_files, TRAIN_RATIO, SEED)
+        print("splits/ not found: using a new seed-42 80/20 split")
 
     print("\nDataset split:")
     print(f"  Total normal images collected recursively: {len(all_normal_files)}")

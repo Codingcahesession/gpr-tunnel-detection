@@ -15,7 +15,6 @@ authors:
     email: ch.nisar89@icloud.com
     affiliation: "University of Strathclyde, Glasgow, UK"
 year: 2026
-# TODO: after arXiv announcement, fill in the identifier below.
 identifiers:
   - type: other
     value: "arXiv:2607.04882"
