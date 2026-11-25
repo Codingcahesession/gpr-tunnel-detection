@@ -16,7 +16,7 @@ Expected with gpr_best_model.pt: AUC 0.9936, F1 0.972, 18 missed tunnel windows,
 18 false positives, 29/29 crossings.
 (Confidence intervals, baselines and all other experiments: journal_experiments/.)
 
-Data: the Kaggle dataset (version 4) unzipped into data/ (or set GPR_DATA, or pass --data).
+Data: the Kaggle dataset (version 4 or later) unzipped into data/ (or set GPR_DATA, or pass --data).
 Run:  python -u evaluate.py            or     python -u evaluate.py --unseen
 Writes: Results/Evaluation/scores_test.csv, scores_unseen.csv, summary.txt
 """

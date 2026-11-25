@@ -3,7 +3,7 @@
 Muhammad Junaid, Shoab A. Khan, Nisar Ahmed
 
 > Paper: [arXiv:2607.04882](https://arxiv.org/abs/2607.04882)
-> Dataset: [Kaggle: GPR Normal and Tunnel Anomaly Dataset (version 4)](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
+> Dataset: [Kaggle: GPR Normal and Tunnel Anomaly Dataset (version 4 or later)](https://www.kaggle.com/datasets/muhammadjunaid007/gpr-normal-and-tunnel-anomaly-dataset)
 > Trained model: [`gpr_best_model.pt`](../../releases) on the Releases page
 
 Hand-dug tunnels beneath pipelines and protected sites are hard to find before they are used. This repository detects them in ground-penetrating radar (GPR) data **without any tunnel examples for training**. A convolutional autoencoder learns what the normal ground of a site looks like from surveys recorded before a tunnel exists. Later surveys are flagged where the autoencoder fails to reconstruct them.
@@ -28,7 +28,8 @@ The test set has 1,600 windows (966 normal, 634 tunnel) from 55 survey lines acr
 - **The depth band improves every detector.** For the autoencoder, AUC goes from 0.986 (whole window) to 0.994. For PatchCore it goes from 0.768 to 0.926.
 - **Every missed tunnel window lies at the edge of a crossing.** All 29 crossings are flagged.
 - **Less data is enough.** With 25% of the training data, depth-band scoring (F1 0.945) beats whole-window scoring trained on all of it (F1 0.927).
-- **The learned model is needed.** Simple scores of the same depth band without any learning (brightness, contrast, edges, difference from the average window) find at most 20 of the 29 crossings.
+- **The learned model is needed.** The best simple score of the same depth band without any learning (difference from the average window; brightness, contrast and edges do worse) misses 9 of the 29 crossings; the autoencoder misses none.
+- **Why it works.** Normal-ground scores shift survey by survey (63-79% of their variance lies between survey lines), so the threshold is set from current clean lines; the depth band raises the separation of tunnel windows from 3.0 to 5.1 standard deviations.
 - **The method is stable.** Across three training seeds: AUC 0.9937 ± 0.0003 and F1 0.9717 ± 0.0008, with all 29 crossings found by each model.
 
 **Unseen ground.** These sites were never used for training, and the threshold comes from Site A:
@@ -37,7 +38,7 @@ The test set has 1,600 windows (966 normal, 634 tunnel) from 55 survey lines acr
 |---|---|---|
 | False alarms | 1.6% | 9.3% |
 
-On the irrigated plot, resetting the threshold from one fifth of its survey lines lowers false alarms to 4.2%; retraining the autoencoder on that plot's own ground gives 3.6%, which is not a significant further gain (tested over all 136 lines in five rounds). So the model is trained once, and a new site needs only a short baseline survey to set the threshold.
+On the irrigated plot, resetting the threshold from one fifth of its survey lines lowers false alarms to 4.2%; retraining the autoencoder on that plot's own ground gives 3.6%, which is not a significant further gain (tested over all 136 lines in five rounds). So the model is trained once, and a new site needs only a short baseline survey to set the threshold. Models trained only on Site B's ground, never shown a Site A window, still detect the Site A tunnel (AUC 0.988 on average; F1 0.940 with the threshold set from clean Site A lines).
 
 <p align="center"><img src="assets/fig_roc.png" width="90%"><br><em>ROC curves at low false-positive rates.</em></p>
 <p align="center"><img src="assets/fig_error_maps.png" width="45%"><br><em>Windows, reconstructions and error maps; the dashed line marks the start of the depth band.</em></p>
@@ -84,7 +85,7 @@ cd gpr-tunnel-detection
 pip install -r requirements.txt
 ```
 
-1. **Data:** download the Kaggle dataset and unzip it into a folder named `data` inside the repository. That folder must contain `labels.csv`, `train_normal_siteA/`, `test_siteA/`, `unseen_normal_siteB/` and `unseen_normal_siteC/`. To keep the data elsewhere, set the environment variable `GPR_DATA` to its folder.
+1. **Data:** download the Kaggle dataset (version 4 or later; the images are the same) and unzip it into a folder named `data` inside the repository. That folder must contain `labels.csv`, `train_normal_siteA/`, `test_siteA/`, `unseen_normal_siteB/` and `unseen_normal_siteC/`. To keep the data elsewhere, set the environment variable `GPR_DATA` to its folder.
 2. **Model:** download `gpr_best_model.pt` from the [Releases](../../releases) page into the repository folder.
 3. **Reproduce the headline result** (a few minutes on a GPU):
 
@@ -122,10 +123,11 @@ The scripts in `journal_experiments/` produce every table and figure of the pape
 | `step10_paper_numbers.py` | false alarms per km, recall at 1% FPR with paired tests, ROC and data-size figures | 1–2 min |
 | `step11_no_learning_rules.py` | depth-band scores without learning, compared with the autoencoder | 5 min |
 | `step12_siteB_rotation.py` | recalibrate or retrain on Site B: five rounds over all 136 lines (trains 5 models) | about 3 h |
+| `step13_score_variation.py` | where normal-score variation comes from; separation of tunnel windows (Table 12) | seconds |
 
 ```bash
 python -u journal_experiments/step1_data_checks.py
-# ... then steps 2, 3, 4, 6, 7, 9, then 5 and 10; steps 11 and 12 can run any time after step 9
+# ... then steps 2, 3, 4, 6, 7, 9, then 5 and 10; steps 11 and 12 can run any time after step 9; step 13 after step 2
 ```
 
 ## Repository layout
@@ -133,7 +135,7 @@ python -u journal_experiments/step1_data_checks.py
 ```
 train.py                 model definition and training
 evaluate.py              headline result with the published model
-journal_experiments/     all experiments of the paper (steps 1-10)
+journal_experiments/     all experiments of the paper (steps 1-13)
 splits/                  exact train/validation file lists used in the paper
 assets/                  figures
 requirements.txt
